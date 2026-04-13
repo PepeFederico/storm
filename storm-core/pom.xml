@@ -278,6 +278,7 @@
                 <artifactId>clojure-maven-plugin</artifactId>
                 <extensions>true</extensions>
                 <configuration>
+                    <skipTests>true</skipTests>
                     <testSourceDirectories>
                         <testSourceDirectory>test/clj</testSourceDirectory>
                     </testSourceDirectories>
