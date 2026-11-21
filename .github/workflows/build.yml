@@ -33,3 +33,4 @@ jobs:
             -Dsonar.projectKey=PepeFederico_storm
             -Dsonar.sources=storm-core/src/jvm
             -Dsonar.inclusions=**/org/apache/storm/utils/Monitor.java
+            -Dsonar.scanner.javaOpts=-Xmx6g
