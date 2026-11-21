@@ -147,6 +147,35 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.vintage</groupId>
+            <artifactId>junit-vintage-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>uk.org.webcompere</groupId>
+            <artifactId>system-stubs-jupiter</artifactId>
+            <version>2.1.6</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.evosuite</groupId>
+            <artifactId>evosuite-standalone-runtime</artifactId>
+            <version>1.0.6</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.hamcrest</groupId>
             <artifactId>hamcrest</artifactId>
             <scope>test</scope>
@@ -232,6 +261,19 @@
             <version>1.1.1</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- Randoop per la generazione automatica dei test -->
+        <dependency>
+            <groupId>org.randoop</groupId>
+            <artifactId>randoop-all</artifactId>
+            <version>4.3.4</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.thrift</groupId>
+            <artifactId>libthrift</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <build>
         <sourceDirectory>src/jvm</sourceDirectory>
@@ -304,6 +346,7 @@
                             <testNamespaces>
                                 <testNamespace>${clojure.test.set}</testNamespace>
                             </testNamespaces>
+                            <!--suppress UnresolvedMavenProperty -->
                             <testDeclaredNamespaceOnly>${clojure.test.declared.namespace.only}</testDeclaredNamespaceOnly>
                             <clojureOptions>-Dstorm.home=${project.basedir}/target/testhome</clojureOptions>
                         </configuration>
@@ -328,6 +371,22 @@
                     </reportsDirectories>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0</version> <!-- o superiore -->
+                <configuration>
+                    <!-- FONDAMENTALE: @{argLine} permette a JaCoCo di iniettare il suo agente senza perdere gli altri parametri -->
+                    <argLine>@{argLine} -Xmx2048m -Djava.awt.headless=true</argLine>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.evosuite.plugins</groupId>
+                <artifactId>evosuite-maven-plugin</artifactId>
+                <version>1.0.6</version>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
@@ -429,6 +488,28 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.14</version>
+                <executions>
+                    <!-- 1. Prepara l'agente impostando l'argLine per Surefire -->
+                    <execution>
+                        <id>default-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <!-- 2. Genera il report HTML -->
+                    <execution>
+                        <id>default-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
@@ -440,24 +521,6 @@
             </activation>
             <build>
                 <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-antrun-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>pre-test-jacoco-clean</id>
-                                <phase>process-test-classes</phase>
-                                <configuration>
-                                    <target>
-                                        <delete file="target\jacoco.exec" />
-                                    </target>
-                                </configuration>
-                                <goals>
-                                    <goal>run</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
                     <plugin>
                         <groupId>org.jacoco</groupId>
                         <artifactId>jacoco-maven-plugin</artifactId>
@@ -479,7 +542,7 @@
                             </execution>
                             <execution>
                                 <id>report</id>
-                                <phase>prepare-package</phase>
+                                <phase>test</phase>
                                 <goals>
                                     <goal>report</goal>
                                 </goals>
@@ -488,6 +551,9 @@
                                         <exclude>org/apache/storm/generated/*</exclude> <!--Thrift generated code-->
                                     </excludes>
                                     <includes>
+                                        <include>org/apache/storm/**</include>
+                                        <include>backtype/**</include>
+                                        <include>storm/**</include>
                                         <include>backtype/*/*/*/*</include>
                                         <include>backtype/*/*/*</include>
                                         <include>backtype/*/*</include>
@@ -505,6 +571,64 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>generate-randoop-tests</id>
+
+            <!-- Randoop sul classpath del progetto (scope test): serve a <classpath/> di exec:exec -->
+            <dependencies>
+                <dependency>
+                    <groupId>org.randoop</groupId>
+                    <artifactId>randoop-all</artifactId>
+                    <version>4.3.4</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>run-randoop</id>
+                                <phase>test-compile</phase>
+                                <goals>
+                                    <!-- exec (non java): avvia una JVM separata con -classpath reale -->
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>java</executable>
+                                    <classpathScope>test</classpathScope>
+                                    <arguments>
+                                        <argument>-classpath</argument>
+                                        <!-- classpath di progetto: target/classes, target/test-classes, dipendenze -->
+                                        <classpath/>
+                                        <argument>randoop.main.Main</argument>
+                                        <argument>gentests</argument>
+                                        <argument>--testclass=org.apache.storm.utils.Monitor</argument>
+                                        <argument>--testclass=org.apache.storm.utils.staticmocking.RandoopMonitorHelper</argument>
+                                        <!-- Radice dei sorgenti di test di storm-core (test/jvm): Randoop crea da solo le sottocartelle del package -->
+                                        <argument>--junit-output-dir=test/jvm</argument>
+                                        <!-- -> test/jvm/org/apache/storm/utils/staticmocking/randoop/ -->
+                                        <argument>--junit-package-name=org.apache.storm.utils.staticmocking.randoop</argument>
+                                        <argument>--only-test-public-members=true</argument>
+                                        <argument>--omit-methods=.*MetricsState.*</argument>
+                                        <argument>--omit-methods=.*Poller.*</argument>
+                                        <!-- Per la riproducibilita' del report -->
+                                        <argument>--time-limit=120</argument>
+                                        <argument>--randomseed=12345</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <profile>
             <id>native</id>
             <build>
@@ -586,6 +710,65 @@
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
+        </profile>
+
+        <profile>
+            <id>pitest</id>
+            <properties>
+                <jacoco.skip>true</jacoco.skip> <!-- Disabilita JaCoCo quando il profilo è attivo -->
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <version>1.25.8</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.pitest</groupId>
+                                <artifactId>pitest-junit5-plugin</artifactId>
+                                <version>1.2.3</version>
+                            </dependency>
+                        </dependencies>
+                        <configuration>
+                            <targetClasses>
+                                <param>org.apache.storm.utils.Monitor</param>
+                            </targetClasses>
+                            <targetTests>
+                                <param>org.apache.storm.utils.staticmocking.llm.guided.MonitorLLMGuidedP1FinalTest</param>
+<!--                                <param>org.apache.storm.utils.staticmocking.llm.fewshot.MonitorLLMFewShotP1FinalTest</param>-->
+<!--                                <param>org.apache.storm.utils.staticmocking.llm.zero.MonitorLLMZeroShotP1FinalTest</param>-->
+<!--                                <param>org.apache.storm.utils.staticmocking.llm.zero.MonitorLLMZeroShotP2FinalTest</param>-->
+<!--                                <param>org.apache.storm.utils.staticmocking.MonitorMTTest</param>-->
+<!--                                <param>org.apache.storm.utils.staticmocking.MonitorBBTest</param>-->
+<!--                                <param>org.apache.storm.utils.staticmocking.MonitorWBTest</param>-->
+                            </targetTests>
+<!--                            <targetTests>-->
+<!--                                <param>org.apache.storm.utils.staticmocking.randoop.RegressionTest0</param>-->
+<!--                                <param>org.apache.storm.utils.staticmocking.randoop.RegressionTest1</param>-->
+<!--                                <param>org.apache.storm.utils.staticmocking.randoop.RegressionTest2</param>-->
+<!--                            </targetTests>-->
+
+                            <jvmArgs>
+                                <param>-XX:+EnableDynamicAgentLoading</param>
+                            </jvmArgs>
+                            <!-- PULISCE I GRUPPI ETEROGENEI CHE MANDANO IN CRASH JUNIT 5 -->
+                            <excludedGroups>
+                                <param>IntegrationTest</param>
+                                <param>PerformanceTest</param>
+                            </excludedGroups>
+
+                            <fullMutationMatrix>true</fullMutationMatrix>
+                            <exportLineCoverage>true</exportLineCoverage>
+
+                            <outputFormats>
+                                <outputFormat>HTML</outputFormat>
+                                <outputFormat>XML</outputFormat>
+                            </outputFormats>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 
