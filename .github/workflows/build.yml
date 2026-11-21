@@ -30,4 +30,3 @@ jobs:
           args: >
             -Dsonar.organization=pepefederico
             -Dsonar.projectKey=PepeFederico_storm
-            -Dsonar.inclusions="**/org/apache/storm/utils/Monitor.java
