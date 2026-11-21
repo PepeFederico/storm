@@ -26,8 +26,10 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_SCANNER_OPTS: -Xmx4g
         with:
           args: >
             -Dsonar.organization=pepefederico
             -Dsonar.projectKey=PepeFederico_storm
+            -Dsonar.sources=storm-core/src/jvm
             -Dsonar.inclusions=**/org/apache/storm/utils/Monitor.java
