@@ -35,7 +35,6 @@
         <worker-launcher.additional_cflags />
         <argLine />
         <conjure.version>2.2.0</conjure.version>
-        <sonar.inclusions>**/org/apache/storm/utils/Monitor.java</sonar.inclusions>
     </properties>
 
     <dependencies>
